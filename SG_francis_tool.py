@@ -237,28 +237,6 @@ def add_dicts(dict1, dict2):
 
 def extract_county_weekly_visits(naics_codes, base_filepath, POI_filepath, weekly_pattern_filepaths,county_FIP, path_to_save_weekly_patterns):
     """
-    This function extracts the Points or places of interest (POIs) based on the specified naics_code(s).
-
-    naics_codes: list
-                A string list of 6 or 4-digit North American Industry Classification System (NAICS) codes representing 
-                the business to extract POIs. Eg. For schools: ['611110']
-
-    region_filter: list
-                Specify a POI filter scale of the format: [scale_type, filter_items] to select regions by an entire state or a city in the state,
-                where scale_type can be 'state' or 'state-city' and the filter items is a dictionary containing the city or state name and 
-                corresponding 2-digit ID of type string. Eg. ['state', {'TX':'48'}] or ['state-city', {'Houston': '48'}]
-
-    base_filepath: path
-                A path of type string to your base directory containing all the core POIs
-                
-    core_poi_filenames: list
-                Define a list of paths to select core_poi files from all the core POIs in your base_filepath (i.e. subset
-                of files from your core POIs)
-
-    results_filepath: path
-                Define a directory to store the results
-
-    Returns csv files of extracted POIs based on specified naics_codes and region_filter and saved in results_filepath directory.
     """
     # step 1: get the ids of specified POI outlets
     movement_outlet_list = []
