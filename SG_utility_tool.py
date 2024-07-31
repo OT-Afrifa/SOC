@@ -28,6 +28,11 @@ class Extract:
     def get_naics_mask(self, df, naics_code):
         """
         This function creates a mask to filter NAICS codes of varying lengths in a dataframe.
+
+        naics_code: str
+                A string of digits of the North American Industry Classification System (NAICS) codes representing 
+                the business to extract POIs. Eg. For elmentary and secondary schools: ['611110'], For education: ['61']
+        
         """
         n = len(naics_code)
         naics_mask = [(not pd.isna(ncode)) and (str(int(ncode))[:n] == naics_code) for ncode in list(df['naics_code'])]
@@ -37,6 +42,28 @@ class Extract:
     def POIs(self,naics_codes, region_filter, base_filepath, core_poi_filenames, results_filepath):
         """
         This function extracts the Points or places of interest (POIs) based on the specified naics_code(s).
+
+        naics_codes: list
+                A string list of digits of the North American Industry Classification System (NAICS) codes representing 
+                the business to extract POIs. Eg. For elmentary and secondary schools: ['611110'], For education: ['61']
+                 Use 'All' or ['All'] to extract all NAICS CODES
+
+        region_filter: list
+                    Specify a POI filter scale of the format: [scale_type, filter_items] to select regions by an entire state or a city in the state,
+                    where scale_type can be 'state' or 'state-city' and the filter items is a dictionary containing the city or state name and 
+                    corresponding 2-digit ID of type string. Eg. ['state', {'TX':'48'}] or ['state-city', {'Houston': '48'}]
+    
+        base_filepath: path
+                    A path of type string to your base directory containing all the core POIs
+                    
+        core_poi_filenames: list
+                    Define a list of paths to select core_poi files from all the core POIs in your base_filepath (i.e. subset
+                    of files from your core POIs)
+    
+        results_filepath: path
+                    Define a directory to store the results
+    
+        Returns csv files of extracted POIs based on specified naics_codes and region_filter and saved in results_filepath directory.
         """
         output_file_list = []
         output_file_writers = []
@@ -44,8 +71,11 @@ class Extract:
         for i in range(len(naics_codes)):
             output_file = open(results_filepath + naics_codes[i] + '.csv', 'w', encoding="utf-8")
             output_file_writer = csv.writer(output_file)
-            output_file_writer.writerow(['safegraph_place_id', 'parent_safegraph_place_id', 'location_name', 'safegraph_brand_ids', 'brands', 'top_category', 'sub_category',
-                                          'naics_code', 'latitude', 'longitude', 'street_address', 'city', 'region', 'postal_code', 'iso_country_code', 'phone_number', 'open_hours', 'category_tags'])
+            col_names = ['safegraph_place_id','parent_safegraph_place_id','location_name',
+                         'safegraph_brand_ids','brands','top_category','sub_category',
+                         'naics_code','latitude','longitude','street_address','city','region',
+                         'postal_code','iso_country_code','phone_number','open_hours','category_tags' ]
+            output_file_writer.writerow(col_names)
             output_file_list.append(output_file)
             output_file_writers.append(output_file_writer)
     
@@ -66,18 +96,55 @@ class Extract:
     
                     print(f"DataFrame after region filtering: {df.shape[0]} rows")
     
-                    for naics_code in naics_codes:
-                        naics_mask = self.get_naics_mask(df, naics_code)
-                        df_filtered = df[naics_mask]
-                        print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
-                        
-                        for _, filtered_row in df_filtered.iterrows():
-                            poi_id = filtered_row['safegraph_place_id']
-                            if poi_id in poi_id_dict.keys():
-                                continue
-                            else:
-                                poi_id_dict[poi_id] = 0
-                                output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row)
+                    try:
+                        all = naics_codes.lower()=='all'
+                        if all == True:
+                            for _, unfiltered_row in df.iterrows():
+                                poi_id = unfiltered_row['safegraph_place_id']
+                                if poi_id in poi_id_dict.keys():
+                                    continue
+                                else:
+                                    poi_id_dict[poi_id] = 0
+                                    output_file_writers[naics_codes.index(naics_codes[0])].writerow(unfiltered_row[col_names])
+
+                        else:
+                            for naics_code in naics_codes:
+                                naics_mask = self.get_naics_mask(df, naics_code)
+                                df_filtered = df[naics_mask]
+                                print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
+            
+                                for _, filtered_row in df_filtered.iterrows():
+                                    poi_id = filtered_row['safegraph_place_id']
+                                    if poi_id in poi_id_dict.keys():
+                                        continue
+                                    else:
+                                        poi_id_dict[poi_id] = 0
+                                        output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row[col_names])
+
+                    except AttributeError:
+                        all = naics_codes[0].lower()=='all'
+                        if all == True:
+                            for _, unfiltered_row in df.iterrows():
+                                poi_id = unfiltered_row['safegraph_place_id']
+                                if poi_id in poi_id_dict.keys():
+                                    continue
+                                else:
+                                    poi_id_dict[poi_id] = 0
+                                    output_file_writers[naics_codes.index(naics_codes[0])].writerow(unfiltered_row[col_names])
+
+                        else:
+                            for naics_code in naics_codes:
+                                naics_mask = self.get_naics_mask(df, naics_code)
+                                df_filtered = df[naics_mask]
+                                print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
+            
+                                for _, filtered_row in df_filtered.iterrows():
+                                    poi_id = filtered_row['safegraph_place_id']
+                                    if poi_id in poi_id_dict.keys():
+                                        continue
+                                    else:
+                                        poi_id_dict[poi_id] = 0
+                                        output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row[col_names])
     
                 except FileNotFoundError:
                     print("First Read attempt failed")
@@ -95,18 +162,55 @@ class Extract:
     
                             print(f"DataFrame after region filtering: {df.shape[0]} rows")
     
-                            for naics_code in naics_codes:
-                                naics_mask = self.get_naics_mask(df, naics_code)
-                                df_filtered = df[naics_mask]
-                                print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
-    
-                                for _, filtered_row in df_filtered.iterrows():
-                                    poi_id = filtered_row['safegraph_place_id']
-                                    if poi_id in poi_id_dict.keys():
-                                        continue
-                                    else:
-                                        poi_id_dict[poi_id] = 0
-                                        output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row)
+                            try:
+                                all = naics_codes.lower()=='all'
+                                if all == True:
+                                    for _, unfiltered_row in df.iterrows():
+                                        poi_id = unfiltered_row['safegraph_place_id']
+                                        if poi_id in poi_id_dict.keys():
+                                            continue
+                                        else:
+                                            poi_id_dict[poi_id] = 0
+                                            output_file_writers[naics_codes.index(naics_codes[0])].writerow(unfiltered_row[col_names])
+
+                                else:
+                                    for naics_code in naics_codes:
+                                        naics_mask = self.get_naics_mask(df, naics_code)
+                                        df_filtered = df[naics_mask]
+                                        print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
+            
+                                        for _, filtered_row in df_filtered.iterrows():
+                                            poi_id = filtered_row['safegraph_place_id']
+                                            if poi_id in poi_id_dict.keys():
+                                                continue
+                                            else:
+                                                poi_id_dict[poi_id] = 0
+                                                output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row[col_names])
+
+                            except AttributeError:
+                                all = naics_codes[0].lower()=='all'
+                                if all == True:
+                                    for _, unfiltered_row in df.iterrows():
+                                        poi_id = unfiltered_row['safegraph_place_id']
+                                        if poi_id in poi_id_dict.keys():
+                                            continue
+                                        else:
+                                            poi_id_dict[poi_id] = 0
+                                            output_file_writers[naics_codes.index(naics_codes[0])].writerow(unfiltered_row[col_names])
+
+                                else:
+                                    for naics_code in naics_codes:
+                                        naics_mask = self.get_naics_mask(df, naics_code)
+                                        df_filtered = df[naics_mask]
+                                        print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
+            
+                                        for _, filtered_row in df_filtered.iterrows():
+                                            poi_id = filtered_row['safegraph_place_id']
+                                            if poi_id in poi_id_dict.keys():
+                                                continue
+                                            else:
+                                                poi_id_dict[poi_id] = 0
+                                                output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row[col_names])
                     except FileNotFoundError:
                         print("Second Read attempt failed")
                         try:
@@ -121,19 +225,56 @@ class Extract:
                                 df = df[df['region'].isin(region_filter[1].keys())]
     
                             print(f"DataFrame after region filtering: {df.shape[0]} rows")
-    
-                            for naics_code in naics_codes:
-                                naics_mask = self.get_naics_mask(df, naics_code)
-                                df_filtered = df[naics_mask]
-                                print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
-    
-                                for _, filtered_row in df_filtered.iterrows():
-                                    poi_id = filtered_row['safegraph_place_id']
-                                    if poi_id in poi_id_dict.keys():
-                                        continue
-                                    else:
-                                        poi_id_dict[poi_id] = 0
-                                        output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row)
+
+                            try:
+                                all = naics_codes.lower()=='all'
+                                if all == True:
+                                    for _, unfiltered_row in df.iterrows():
+                                        poi_id = unfiltered_row['safegraph_place_id']
+                                        if poi_id in poi_id_dict.keys():
+                                            continue
+                                        else:
+                                            poi_id_dict[poi_id] = 0
+                                            output_file_writers[naics_codes.index(naics_codes[0])].writerow(unfiltered_row[col_names])
+
+                                else:
+                                    for naics_code in naics_codes:
+                                        naics_mask = self.get_naics_mask(df, naics_code)
+                                        df_filtered = df[naics_mask]
+                                        print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
+            
+                                        for _, filtered_row in df_filtered.iterrows():
+                                            poi_id = filtered_row['safegraph_place_id']
+                                            if poi_id in poi_id_dict.keys():
+                                                continue
+                                            else:
+                                                poi_id_dict[poi_id] = 0
+                                                output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row[col_names])
+
+                            except AttributeError:
+                                all = naics_codes[0].lower()=='all'
+                                if all == True:
+                                    for _, unfiltered_row in df.iterrows():
+                                        poi_id = unfiltered_row['safegraph_place_id']
+                                        if poi_id in poi_id_dict.keys():
+                                            continue
+                                        else:
+                                            poi_id_dict[poi_id] = 0
+                                            output_file_writers[naics_codes.index(naics_codes[0])].writerow(unfiltered_row[col_names])
+
+                                else:
+                                    for naics_code in naics_codes:
+                                        naics_mask = self.get_naics_mask(df, naics_code)
+                                        df_filtered = df[naics_mask]
+                                        print(f"DataFrame after NAICS filtering ({naics_code}): {df_filtered.shape[0]} rows")
+            
+                                        for _, filtered_row in df_filtered.iterrows():
+                                            poi_id = filtered_row['safegraph_place_id']
+                                            if poi_id in poi_id_dict.keys():
+                                                continue
+                                            else:
+                                                poi_id_dict[poi_id] = 0
+                                                output_file_writers[naics_codes.index(naics_code)].writerow(filtered_row[col_names])
                         except FileNotFoundError:
                             print("Oh God")
                             raise FileNotFoundError("All attempts failed.")
@@ -706,6 +847,41 @@ class Extract:
                                                        naics_names[0]+'_LON',naics_names[0]+'_LAT','Home_LON', 'Home_LAT',
                                                        'Distance_Covered (km)']]
             network_analysis_CT.to_csv(path_to_save_weekly_flow_format+'-network_analysis-CT.csv',encoding="UTF-8", index=False)
+
+
+
+    def POI_Census_Tract_count(self, poi_df, path_to_shapefile_CT, naics_name):
+        """
+        This function returns a two column dataframe of Census Tract and number of POIs in each Tract
+
+        poi_df: pandas dataframe
+               The pandas dataframe containing the extracted POIs of interest
+               
+        path_to_shapefile_CT: str
+                Define the path to the Census Tracts Shapefile for the state or region of interest.
+
+        naics_name: str
+                A string of name of the NAICS code representing the business to extract the number of counts for each census tract. Eg: 'EducatioN POIs'.
+    
+        """
+        from shapely.geometry import Point
+        # Using the POIs dataframe 'longitude' and 'latitude' columns
+        # Convert POIs to a GeoDataFrame
+        geometry = [Point(xy) for xy in zip(poi_df['longitude'].astype(float), poi_df['latitude'].astype(float))]
+        gdf_pois = gp.GeoDataFrame(poi_df, geometry=geometry)
+    
+        # Load the census tracts shapefile (this should be replaced with the actual path to the shapefile)
+        census_tracts = gp.read_file(path_to_shapefile_CT)
+    
+        #use the same coordinate reference system (CRS) for both GeoDataFrames
+        gdf_pois = gdf_pois.set_crs(census_tracts.crs, allow_override=True)
+    
+        # Perform the spatial join
+        joined_gdf = gp.sjoin(gdf_pois, census_tracts, how='left', op='within')
+    
+        # Count the number of POIs in each census tract
+        tract_poi_counts = joined_gdf.groupby('TRACTCE').size().reset_index(name='Number of '+naics_name)
+        return tract_poi_counts
 
 
 # Example usage:
